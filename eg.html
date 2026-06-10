@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex,nofollow" />
+<title>Audio-Block — EG</title>
+<style>
+  * { box-sizing:border-box; margin:0; padding:0; }
+  /* Grauer Hintergrund (gleiche Luminanz wie Bild-Block-Washout), dunkle Elemente. */
+  html,body { height:100%; background:#808080; color:#1a1a1a;
+    font-family:-apple-system,Segoe UI,Roboto,sans-serif; overflow:hidden; }
+  #stage { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:#808080; }
+  /* Zentrales Fixationskreuz (CSS-gezeichnet), dunkel auf grau. */
+  #cross { display:none; position:relative; width:38px; height:38px; }
+  #cross::before, #cross::after { content:''; position:absolute; background:#1a1a1a; }
+  #cross::before { left:17px; top:0; width:4px; height:38px; }
+  #cross::after { top:17px; left:0; height:4px; width:38px; }
+  #panel { max-width:660px; padding:30px 34px; text-align:center; line-height:1.6;
+    background:rgba(15,23,42,0.92); border:1px solid rgba(255,255,255,0.12); border-radius:14px; }
+  #panel h1 { font-size:22px; margin-bottom:14px; color:#22d3ee; }
+  #panel p { font-size:15px; color:#cbd5e1; margin-bottom:10px; }
+  #instruction { font-size:18px; color:#f1f5f9; line-height:1.5; margin-bottom:22px; }
+  #panel small { color:#94a3b8; }
+  #cfg { margin-top:16px; font-size:12px; color:#64748b; font-family:monospace; }
+  button { margin-top:18px; background:#06b6d4; color:#000; border:0; border-radius:8px;
+    padding:10px 22px; font-size:15px; font-weight:700; cursor:pointer; }
+  button:disabled { opacity:.4; cursor:default; }
+  a#dl { color:#22d3ee; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="cross"></div>
+  <div id="panel">
+    <h1>Entspannungs-Audio</h1>
+    <p id="instruction">Setz die Kopfhörer auf und mach es dir bequem.<br />Wenn du startest, läuft eine Aufnahme von gut zwei Minuten. Lehn dich zurück und hör einfach entspannt zu — du kannst die Augen schließen oder locker auf das Kreuz in der Mitte schauen.</p>
+    <p id="status">Audio wird geladen …</p>
+    <button id="startBtn" disabled>Start (Leertaste)</button>
+    <p><small>Versuchsleitung: erst EEG-Aufnahme starten + Phasen-Marker setzen, dann Leertaste drücken.</small></p>
+    <div id="cfg"></div>
+  </div>
+</div>
+<audio id="aud" preload="auto" src="audio_eg.mp3"></audio>
+
+<script>
+/* ============================================================================
+   Audio-Block — selbst-timender Player mit EEG-Marker-Logging.
+   - Start-Gate (Leertaste/Button): Versuchsleitung startet zuerst das EEG.
+   - Während der Wiedergabe: grauer Schirm + Fixationskreuz (Vollbild).
+   - Onset (Play) und Offset (ended) werden in epoch_ms (Date.now) protokolliert
+     -> gleiche Wall-Clock wie der EEG-Roh-Export -> exaktes Audio-Fenster.
+   - Keine sichtbaren Audio-Controls (kein Vor-/Zurückspulen durch Probanden).
+   - Am Ende: Marker-CSV-Download.
+   Gruppen-spezifisch ist nur GROUP/FILE (+ <title> + <audio src>).
+   ========================================================================== */
+const GROUP='EG', FILE='audio_eg.mp3';
+const MARKER='Audio '+GROUP;
+
+const $=(id)=>document.getElementById(id);
+const aud=$('aud'), crossEl=$('cross'), panel=$('panel'), statusEl=$('status'), startBtn=$('startBtn');
+
+const log=[]; let runStartEpoch=0, onset=0, started=false, finished=false, ready=false;
+const fmt=(s)=>{ s=Math.round(s); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); };
+
+function setCfg(){ const d=aud.duration; $('cfg').textContent = `Gruppe ${GROUP} · ${FILE}` + (isFinite(d)&&d>0?` · Länge ${fmt(d)}`:''); }
+function markReady(){ if(ready) return; ready=true; startBtn.disabled=false; statusEl.textContent='Bereit. Leertaste oder Button zum Start.'; setCfg(); }
+
+aud.addEventListener('loadedmetadata', ()=>{ setCfg(); statusEl.textContent='Audio geladen …'; });
+aud.addEventListener('canplaythrough', markReady);
+aud.addEventListener('error', ()=>{ statusEl.textContent='FEHLER: Audio konnte nicht geladen werden ('+FILE+').'; });
+/* Fallback, falls canplaythrough im Cache nicht feuert */
+setTimeout(()=>{ if(!ready && aud.readyState>=2) markReady(); }, 8000);
+
+function showGap(){ crossEl.style.display='block'; }
+function hideGap(){ crossEl.style.display='none'; }
+
+function start(){
+  if(startBtn.disabled || started) return;
+  started=true;
+  document.removeEventListener('keydown', onKey);
+  document.addEventListener('keydown', onKeyDuring);
+  startBtn.removeEventListener('click', start);
+  if(document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(()=>{});
+  panel.style.display='none';
+  runStartEpoch=Date.now();
+  log.push({event:'run_start', onset:runStartEpoch, off:runStartEpoch, rel:0, planned:0});
+  showGap();
+  onset=Date.now();
+  try{ window.parent.postMessage({type:'sfbt:marker', label:'AUDIO|'+FILE, ts:onset}, '*'); }catch(e){}
+  aud.play().catch(()=>{ statusEl.textContent='Wiedergabe blockiert — Button erneut drücken.'; });
+}
+
+aud.addEventListener('ended', ()=>{ if(finished) return; record('audio'); finish(); });
+
+function record(event){ const off=Date.now(); log.push({event, onset, off, rel:onset-runStartEpoch, planned:Math.round((aud.duration||0)*1000)}); }
+
+function finish(){
+  finished=true;
+  hideGap();
+  const endEpoch=Date.now();
+  log.push({event:'run_end', onset:endEpoch, off:endEpoch, rel:endEpoch-runStartEpoch, planned:0});
+
+  const head='# Audio-Block '+GROUP+' — Marker-Log. onset/offset = epoch_ms (Date.now), 1:1 alignbar mit der epoch_ms-Spalte des EEG-Roh-Exports (gleiche Wall-Clock/Maschine).\n'
+           + 'event,group,file,onset_epoch_ms,offset_epoch_ms,onset_rel_ms,planned_ms,actual_dur_ms\n';
+  const rows=log.map(r=>`${r.event},${GROUP},${FILE},${r.onset},${r.off},${r.rel},${r.planned},${r.off-r.onset}`).join('\n');
+  const csv='﻿'+head+rows;
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const stamp=new Date(runStartEpoch).toISOString().slice(0,19).replace(/:/g,'-');
+  const fname=`audioblock-${GROUP}-marker-${stamp}.csv`;
+  const a=document.createElement('a'); a.href=url; a.download=fname;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  try{ window.parent.postMessage({type:'sfbt:complete'}, '*'); }catch(e){}
+  if(document.fullscreenElement) document.exitFullscreen().catch(()=>{});
+
+  panel.style.display='block';
+  panel.innerHTML=`<h1>Audio-Block fertig</h1>
+    <p>Marker-Log heruntergeladen: <strong>${fname}</strong></p>
+    <p><small>Falls der Download blockiert wurde:</small></p>
+    <p><a id="dl" href="${url}" download="${fname}">Marker-CSV manuell speichern</a></p>
+    <p><small>Über die <code>epoch_ms</code>-Spalte mit dem EEG-Roh-Export zusammenführen → exaktes Audio-Fenster.</small></p>`;
+}
+
+function onKey(e){ if(e.code==='Space' && !startBtn.disabled){ e.preventDefault(); start(); } }
+function onKeyDuring(e){
+  if(e.code==='Space'){ e.preventDefault(); }            // kein versehentliches Toggeln
+  if(e.code==='Escape'){ aud.pause(); if(!finished){ record('audio_aborted'); finish(); } }
+}
+document.addEventListener('keydown', onKey);
+startBtn.addEventListener('click', start);
+</script>
+</body>
+</html>
