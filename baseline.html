@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex,nofollow" />
+<title>Baseline — Ruhephase</title>
+<style>
+  * { box-sizing:border-box; margin:0; padding:0; }
+  /* Neutrales Grau (gleiche Luminanz wie der Bild-Block-Washout) für die Ruhe-Baseline. */
+  html,body { height:100%; background:#808080; color:#1a1a1a; overflow:hidden;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+  #stage { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; }
+  /* Zentrales Fixationskreuz, dunkel auf grau. */
+  #cross { position:relative; width:42px; height:42px; }
+  #cross::before, #cross::after { content:''; position:absolute; background:#1a1a1a; }
+  #cross::before { left:19px; top:0; width:4px; height:42px; }
+  #cross::after { top:19px; left:0; height:4px; width:42px; }
+  /* Kurzer Hinweis oben, der nach einigen Sekunden ausblendet. */
+  #hint { position:fixed; top:7%; left:50%; transform:translateX(-50%);
+    background:rgba(15,23,42,0.88); color:#e8edf2; border-radius:12px;
+    padding:14px 22px; font-size:16px; line-height:1.5; text-align:center; max-width:560px;
+    transition:opacity 1.2s ease; }
+</style>
+</head>
+<body>
+<div id="stage"><div id="cross"></div></div>
+<div id="hint">Ruhephase: Sitz bitte entspannt und schau locker auf das Kreuz in der Mitte.<br />Atme normal — gleich geht es weiter.</div>
+<script>
+  // Hinweis nach 8 s sanft ausblenden, danach nur noch graues Feld + Kreuz.
+  setTimeout(function(){ var h=document.getElementById('hint'); if(h) h.style.opacity='0'; }, 8000);
+  setTimeout(function(){ var h=document.getElementById('hint'); if(h) h.style.display='none'; }, 9500);
+</script>
+</body>
+</html>
