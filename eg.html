@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="robots" content="noindex,nofollow" />
-<title>Audio-Block — EG</title>
+<title>Audio-Block – EG</title>
 <style>
   * { box-sizing:border-box; margin:0; padding:0; }
   /* Grauer Hintergrund (gleiche Luminanz wie Bild-Block-Washout), dunkle Elemente. */
@@ -34,7 +34,7 @@
   <div id="cross"></div>
   <div id="panel">
     <h1>Entspannungs-Audio</h1>
-    <p id="instruction">Setz die Kopfhörer auf und mach es dir bequem.<br />Wenn du startest, läuft eine Aufnahme von gut zwei Minuten. Lehn dich zurück und hör einfach entspannt zu — du kannst die Augen schließen oder locker auf das Kreuz in der Mitte schauen.</p>
+    <p id="instruction">Setz die Kopfhörer auf und mach es dir bequem.<br />Wenn du startest, läuft eine Aufnahme von gut zwei Minuten. Lehn dich zurück und hör einfach entspannt zu – du kannst die Augen schließen oder locker auf das Kreuz in der Mitte schauen.</p>
     <p id="status">Audio wird geladen …</p>
     <button id="startBtn" disabled>Start (Leertaste)</button>
     <p><small>Versuchsleitung: erst EEG-Aufnahme starten + Phasen-Marker setzen, dann Leertaste drücken.</small></p>
@@ -45,7 +45,7 @@
 
 <script>
 /* ============================================================================
-   Audio-Block — selbst-timender Player mit EEG-Marker-Logging.
+   Audio-Block – selbst-timender Player mit EEG-Marker-Logging.
    - Start-Gate (Leertaste/Button): Versuchsleitung startet zuerst das EEG.
    - Während der Wiedergabe: grauer Schirm + Fixationskreuz (Vollbild).
    - Onset (Play) und Offset (ended) werden in epoch_ms (Date.now) protokolliert
@@ -88,7 +88,7 @@ function start(){
   showGap();
   onset=Date.now();
   try{ window.parent.postMessage({type:'sfbt:marker', label:'AUDIO|'+FILE, ts:onset}, '*'); }catch(e){}
-  aud.play().catch(()=>{ statusEl.textContent='Wiedergabe blockiert — Button erneut drücken.'; });
+  aud.play().catch(()=>{ statusEl.textContent='Wiedergabe blockiert – Button erneut drücken.'; });
 }
 
 aud.addEventListener('ended', ()=>{ if(finished) return; record('audio'); finish(); });
@@ -101,7 +101,7 @@ function finish(){
   const endEpoch=Date.now();
   log.push({event:'run_end', onset:endEpoch, off:endEpoch, rel:endEpoch-runStartEpoch, planned:0});
 
-  const head='# Audio-Block '+GROUP+' — Marker-Log. onset/offset = epoch_ms (Date.now), 1:1 alignbar mit der epoch_ms-Spalte des EEG-Roh-Exports (gleiche Wall-Clock/Maschine).\n'
+  const head='# Audio-Block '+GROUP+' – Marker-Log. onset/offset = epoch_ms (Date.now), 1:1 alignbar mit der epoch_ms-Spalte des EEG-Roh-Exports (gleiche Wall-Clock/Maschine).\n'
            + 'event,group,file,onset_epoch_ms,offset_epoch_ms,onset_rel_ms,planned_ms,actual_dur_ms\n';
   const rows=log.map(r=>`${r.event},${GROUP},${FILE},${r.onset},${r.off},${r.rel},${r.planned},${r.off-r.onset}`).join('\n');
   const csv='﻿'+head+rows;
